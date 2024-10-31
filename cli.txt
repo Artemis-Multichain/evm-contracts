@@ -1,6 +1,6 @@
 npx hardhat get-eth-price --network baseSepolia
 npx hardhat update-eth-price --network baseSepolia
-npx hardhat ignition deploy ./ignition/modules/NFTMarketplaceModule.ts --network baseSepolia --verify
+npx hardhat ignition deploy ./ignition/modules/AIPromptMarketplaceModule.ts --network baseSepolia --verify
 npx hardhat create-nft --network baseSepolia \
   --uri ipfs://YourIPFSHash \
   --supply 500 \

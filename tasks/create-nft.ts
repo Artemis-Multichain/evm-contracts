@@ -35,18 +35,15 @@ task('create-nft', 'Creates a new NFT in the marketplace')
       const PRICE_USD = BigInt(taskArgs.price);
       const ROYALTY = parseInt(taskArgs.royalty);
 
-      // Validate parameters
       if (SUPPLY <= 0) throw new Error('Supply must be greater than 0');
       if (PRICE_USD <= 0) throw new Error('Price must be greater than 0');
       if (ROYALTY < 0 || ROYALTY > 2000)
         throw new Error('Royalty must be between 0 and 20%');
 
-      // Get signer
       const [signer] = await hre.ethers.getSigners();
       console.log('Creating NFT from address:', signer.address);
       console.log('Using NFTMarketplace at:', contractAddress);
 
-      // Get contract instance
       const marketplace = (await hre.ethers.getContractAt(
         'NFTMarketplace',
         contractAddress,
@@ -84,7 +81,6 @@ task('create-nft', 'Creates a new NFT in the marketplace')
         'ETH'
       );
 
-      // Create NFT
       console.log('\nSubmitting transaction...');
       const tx = await marketplace.createNFT(SUPPLY, URI, PRICE_USD, ROYALTY, {
         value: creationFee,
@@ -92,7 +88,6 @@ task('create-nft', 'Creates a new NFT in the marketplace')
 
       console.log('Transaction submitted:', tx.hash);
 
-      // Wait for transaction confirmation
       console.log('Waiting for confirmation...');
       const receipt = await tx.wait();
 

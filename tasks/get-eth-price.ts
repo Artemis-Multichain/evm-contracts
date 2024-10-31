@@ -9,7 +9,6 @@ task(
   'Gets the current ETH price from the SEDA oracle'
 ).setAction(async (_, hre: HardhatRuntimeEnvironment) => {
   try {
-    // Get contract address from deployment file
     const deploymentPath = path.join(
       __dirname,
       `../ignition/deployments/chain-${hre.network.config.chainId}/deployed_addresses.json`
@@ -33,7 +32,6 @@ task(
 
     console.log('Using PriceFeed at:', CONTRACT_ADDRESS);
 
-    // Get contract instance
     const priceFeed = (await hre.ethers.getContractAt(
       'AutomatedSedaPriceFeed',
       CONTRACT_ADDRESS
@@ -60,17 +58,14 @@ task(
       Math.floor(Date.now() / 1000) - Number(lastTimestamp);
     console.log('Time Since Update:', timeSinceUpdate, 'seconds');
 
-    // Get automation status
     const automationEnabled = await priceFeed.automationEnabled();
     const isPaused = await priceFeed.paused();
     console.log('\n=== Automation Status ===');
     console.log('Automation Enabled:', automationEnabled);
     console.log('Contract Paused:', isPaused);
 
-    // Try to get the price
     console.log('\n=== Price Information ===');
     try {
-      // First try to get the raw data to check consensus
       const proverContract = await priceFeed.sedaProverContract();
       const sedaProver = await hre.ethers.getContractAt(
         'SedaProver',
@@ -90,7 +85,6 @@ task(
         return;
       }
 
-      // Get the latest price
       const latestPrice = await priceFeed.latestAnswer();
 
       if (latestPrice.toString() === '0') {

@@ -53,7 +53,6 @@ task(
       return;
     }
 
-    // Try to get the result from SEDA
     try {
       const sedaProver = await marketplace.sedaProverContract();
       const prover = await hre.ethers.getContractAt('SedaProver', sedaProver);
@@ -73,13 +72,11 @@ task(
       return;
     }
 
-    // Try to get the latest prompt using the contract's function
     try {
       const prompt = await marketplace.getLatestPrompt();
       console.log('\n=== Generated Prompt ===');
       console.log(prompt);
 
-      // Check if there's a stored latest generated prompt
       const storedPrompt = await marketplace.latestGeneratedPrompt();
       if (storedPrompt !== prompt) {
         console.log('\nStored Latest Prompt:', storedPrompt || '(none)');

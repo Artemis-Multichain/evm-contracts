@@ -10,8 +10,7 @@ interface IPriceFeed {
     function latestAnswer() external view returns (uint128);
 }
 
-contract NFTMarketplace is ERC1155, ReentrancyGuard, Pausable {
-    // Structs
+contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable {
     struct TokenData {
         uint256 supply;
         uint256 priceUSD;
@@ -21,12 +20,10 @@ contract NFTMarketplace is ERC1155, ReentrancyGuard, Pausable {
         uint256 royaltyPercentage;
     }
 
-    // State variables
     uint256 private _currentTokenId = 1;
     string private _name;
     string private _symbol;
     
-    // Token storage
     mapping(uint256 => TokenData) private _tokens;
     
     // Platform fee configuration

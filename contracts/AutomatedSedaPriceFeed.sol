@@ -194,16 +194,11 @@ contract AutomatedSedaPriceFeed is AutomationCompatibleInterface, Pausable {
         emit AutomationConfigUpdated(minUpdateInterval, enabled);
     }
 
-    /**
-     * @notice Pauses the contract, preventing price updates
-     */
+
     function pause() external {
         _pause();
     }
 
-    /**
-     * @notice Unpauses the contract, allowing price updates
-     */
     function unpause() external {
         _unpause();
     }

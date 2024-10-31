@@ -5,11 +5,11 @@ import { buildModule } from '@nomicfoundation/hardhat-ignition/modules';
 import { getOracleProgramId, getSedaConfig } from '../sedaUtils';
 
 export const AutomatedSedaPriceFeedModule = buildModule('AutomatedSedaPriceFeedModule', (m) => {
-  // Contract parameters
+ 
   let proverAddress;
   let oracleProgramId;
 
-  // Fetch network-specific parameters
+  
   if (network.name !== 'hardhat') {
     const sedaConfig = getSedaConfig(network.name);
     proverAddress = m.getParameter('sedaProverContract', sedaConfig.proverAddress);
