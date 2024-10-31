@@ -1,74 +1,133 @@
 import { task } from 'hardhat/config';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { NFTMarketplace } from '../typechain-types';
+import * as fs from 'fs';
+import * as path from 'path';
 
 task('mint-nft', 'Mints an NFT from the marketplace')
   .addParam('tokenId', 'The ID of the NFT to mint')
   .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
     try {
-      const CONTRACT_ADDRESS = '0x81253985a66D3A479d3377f494a77033c078d462';
+      const deploymentPath = path.join(
+        __dirname,
+        `../ignition/deployments/chain-${hre.network.config.chainId}/deployed_addresses.json`
+      );
 
-      // Get signer
+      if (!fs.existsSync(deploymentPath)) {
+        throw new Error(
+          `No deployments found for network ${hre.network.name} (chainId: ${hre.network.config.chainId})`
+        );
+      }
+
+      const deployments = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
+      const contractAddress =
+        deployments['NFTMarketplaceModule#NFTMarketplace'];
+
+      if (!contractAddress) {
+        throw new Error('NFTMarketplace address not found in deployments');
+      }
+
       const [signer] = await hre.ethers.getSigners();
       console.log('Minting as:', signer.address);
+      console.log('Using NFTMarketplace at:', contractAddress);
 
-      // Get contract instance
       const marketplace = (await hre.ethers.getContractAt(
         'NFTMarketplace',
-        CONTRACT_ADDRESS,
+        contractAddress,
         signer
       )) as unknown as NFTMarketplace;
 
-      // Get token data
+      const isPaused = await marketplace.paused();
+      if (isPaused) {
+        throw new Error('Marketplace is currently paused');
+      }
+
       const tokenData = await marketplace.getTokenData(taskArgs.tokenId);
-      console.log('\nToken Details:');
+      console.log('\n=== Token Details ===');
       console.log('- Token ID:', taskArgs.tokenId);
       console.log('- Creator:', tokenData.creator);
       console.log('- Available Supply:', Number(tokenData.supply));
-      console.log('- Price (USD):', Number(tokenData.priceUSD) / 1_000_000, 'USD');
-      console.log('- Price (USD Raw):', tokenData.priceUSD.toString());
+      console.log(
+        '- Price (USD):',
+        Number(tokenData.priceUSD) / 1_000_000,
+        'USD'
+      );
       console.log('- Royalty:', Number(tokenData.royaltyPercentage) / 100, '%');
 
-      // Get ETH price
+      // Get ETH price and validate
       const ethPrice = await marketplace.getEthPrice();
       if (ethPrice.toString() === '0') {
-        throw new Error('No valid ETH price available. Run update-eth-price first.');
+        console.log('\n⚠️ No valid ETH price available');
+        console.log('Running update-eth-price task...');
+
+        const priceFeedAddress =
+          deployments['AutomatedSedaPriceFeedModule#AutomatedSedaPriceFeed'];
+        if (!priceFeedAddress) {
+          throw new Error('PriceFeed address not found in deployments');
+        }
+
+        const priceFeed = await hre.ethers.getContractAt(
+          'AutomatedSedaPriceFeed',
+          priceFeedAddress
+        );
+        const tx = await priceFeed.transmit();
+        console.log('Price update requested:', tx.hash);
+        await tx.wait();
+        console.log('Please wait 30-60 seconds and try minting again');
+        return;
       }
-      
-      console.log('\nPrice Debug Info:');
-      console.log('Raw ETH Price:', ethPrice.toString());
-      console.log('ETH Price in USD:', Number(ethPrice) / 1_000_000);
-      
-      // Calculate required ETH manually
-      const priceUSD = tokenData.priceUSD;
-      const calculatedETH = (priceUSD * BigInt(1e18)) / ethPrice;
-      
-      console.log('\nCalculation Debug:');
-      console.log('Price USD * 1e18:', (priceUSD * BigInt(1e18)).toString());
-      console.log('Divided by ETH price:', calculatedETH.toString());
 
-      // Get contract's calculation
-      const requiredETH = await marketplace.getCurrentPriceETH(taskArgs.tokenId);
-      console.log('\nRequired ETH (contract):', hre.ethers.formatEther(requiredETH), 'ETH');
-      console.log('Required ETH (calculated):', hre.ethers.formatEther(calculatedETH), 'ETH');
+      console.log('\n=== Price Information ===');
+      console.log('Current ETH Price:', Number(ethPrice) / 1_000_000, 'USD');
 
-      console.log('\nWould you like to continue with the mint? (Price might be incorrect)');
-    //   process.exit(0);
-      console.log('Required ETH:', hre.ethers.formatEther(requiredETH), 'ETH');
+      const requiredETH = await marketplace.getCurrentPriceETH(
+        taskArgs.tokenId
+      );
+      console.log(
+        '\nRequired Payment:',
+        hre.ethers.formatEther(requiredETH),
+        'ETH'
+      );
+
+      const balance = await hre.ethers.provider.getBalance(signer.address);
+      if (balance < requiredETH) {
+        throw new Error(
+          `Insufficient ETH balance. Need ${hre.ethers.formatEther(
+            requiredETH
+          )} ETH`
+        );
+      }
+
+      const platformFee = await marketplace.platformFee();
+      const platformFeeAmount =
+        (requiredETH * BigInt(platformFee)) / BigInt(10000);
+      const royaltyAmount =
+        (requiredETH * BigInt(tokenData.royaltyPercentage)) / BigInt(10000);
+
+      console.log('\n=== Fee Breakdown ===');
+      console.log(
+        '- Platform Fee:',
+        hre.ethers.formatEther(platformFeeAmount),
+        'ETH'
+      );
+      console.log('- Royalty:', hre.ethers.formatEther(royaltyAmount), 'ETH');
+      console.log(
+        '- To Creator:',
+        hre.ethers.formatEther(requiredETH - platformFeeAmount - royaltyAmount),
+        'ETH'
+      );
 
       console.log('\nMinting NFT...');
 
-      // Mint NFT
       const tx = await marketplace.mint(taskArgs.tokenId, {
         value: requiredETH,
       });
 
       console.log('Transaction submitted:', tx.hash);
 
-      // Wait for confirmation
+      console.log('Waiting for confirmation...');
       const receipt = await tx.wait();
 
-      // Find TokenMinted event
       const event = receipt?.logs
         .map((log) => {
           try {
@@ -107,22 +166,22 @@ task('mint-nft', 'Mints an NFT from the marketplace')
       if (error instanceof Error) {
         console.error('\n❌ Error minting NFT:', error.message);
 
-        if (error.message.includes('InvalidToken')) {
-          console.error('This token ID does not exist!');
-        }
-        if (error.message.includes('InsufficientSupply')) {
-          console.error('This NFT is sold out!');
-        }
-        if (error.message.includes('InvalidPrice')) {
+        if (error.message.includes('No deployments found')) {
           console.error(
-            'No valid price available. Try running update-eth-price first.'
+            'Please deploy the contracts first using the deployment script'
           );
-        }
-        if (error.message.includes('InvalidPayment')) {
+        } else if (error.message.includes('InvalidToken')) {
+          console.error('This token ID does not exist!');
+        } else if (error.message.includes('InsufficientSupply')) {
+          console.error('This NFT is sold out!');
+        } else if (error.message.includes('InvalidPrice')) {
+          console.error('No valid price available. Please wait and try again.');
+        } else if (error.message.includes('InvalidPayment')) {
           console.error('Insufficient ETH sent for minting!');
-        }
-        if (error.message.includes('insufficient funds')) {
+        } else if (error.message.includes('insufficient funds')) {
           console.error('Your wallet does not have enough ETH!');
+        } else if (error.message.includes('Marketplace is currently paused')) {
+          console.error('The marketplace is paused. Please try again later.');
         }
       } else {
         console.error('Unknown error occurred');

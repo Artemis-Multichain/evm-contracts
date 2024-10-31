@@ -2,17 +2,14 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@seda-protocol/contracts/src/SedaProver.sol";
-import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-contract NFTMarketplace is 
-    ERC1155, 
-    AutomationCompatibleInterface, 
-    ReentrancyGuard, 
-    Pausable 
-{
+interface IPriceFeed {
+    function latestAnswer() external view returns (uint128);
+}
+
+contract NFTMarketplace is ERC1155, ReentrancyGuard, Pausable {
     // Structs
     struct TokenData {
         uint256 supply;
@@ -20,11 +17,11 @@ contract NFTMarketplace is
         string tokenURI;
         bool exists;
         address creator;
-        uint256 royaltyPercentage; // Creator royalty (in basis points, e.g., 250 = 2.5%)
+        uint256 royaltyPercentage;
     }
 
     // State variables
-    uint256 private _currentTokenId = 1; // Start from ID 1
+    uint256 private _currentTokenId = 1;
     string private _name;
     string private _symbol;
     
@@ -32,23 +29,16 @@ contract NFTMarketplace is
     mapping(uint256 => TokenData) private _tokens;
     
     // Platform fee configuration
-    uint256 public creationFee;      // Fee to create a new NFT collection
-    uint256 public platformFee;      // Fee per sale (in basis points)
-    address public feeRecipient;     // Address receiving platform fees
+    uint256 public creationFee;
+    uint256 public platformFee;
+    address public feeRecipient;
     
-    // Oracle integration
-    SedaProver public immutable sedaProverContract;
-    bytes32 public immutable oracleProgramId;
-    bytes32 public latestDataRequestId;
+    // Price feed
+    IPriceFeed public immutable priceFeed;
     
     // Constants
     uint256 public constant PRICE_DECIMALS = 6;
-    uint256 public constant BASIS_POINTS = 10000; // For fee calculations
-    
-    // Automation variables
-    uint256 public minUpdateInterval;
-    uint256 public lastTimeStamp;
-    bool public automationEnabled;
+    uint256 public constant BASIS_POINTS = 10000;
     
     // Events
     event TokenCreated(
@@ -66,7 +56,6 @@ contract NFTMarketplace is
         uint256 platformFeeAmount,
         uint256 royaltyAmount
     );
-    event PriceUpdated(uint256 timestamp, uint256 ethPrice);
     event FeesUpdated(uint256 creationFee, uint256 platformFee);
     event FeeRecipientUpdated(address newRecipient);
 
@@ -82,29 +71,21 @@ contract NFTMarketplace is
     constructor(
         string memory name_,
         string memory symbol_,
-        address _sedaProverContract,
-        bytes32 _oracleProgramId,
-        uint256 _minUpdateInterval,
+        address _priceFeed,
         uint256 _creationFee,
         uint256 _platformFee,
         address _feeRecipient
     ) ERC1155("") {
         _name = name_;
         _symbol = symbol_;
-        sedaProverContract = SedaProver(_sedaProverContract);
-        oracleProgramId = _oracleProgramId;
-        minUpdateInterval = _minUpdateInterval;
+        priceFeed = IPriceFeed(_priceFeed);
         
         if (_platformFee > 1000) revert InvalidFeeConfiguration(); // Max 10%
         platformFee = _platformFee;
         creationFee = _creationFee;
         feeRecipient = _feeRecipient;
-        
-        lastTimeStamp = block.timestamp;
-        automationEnabled = true;
     }
 
-    // NFT Creation
     function createNFT(
         uint256 initialSupply,
         string memory tokenURI,
@@ -142,7 +123,6 @@ contract NFTMarketplace is
         return tokenId;
     }
 
-    
     function mint(uint256 tokenId) external payable nonReentrant whenNotPaused {
         TokenData storage token = _tokens[tokenId];
         if (!token.exists) revert InvalidToken();
@@ -188,74 +168,16 @@ contract NFTMarketplace is
         }
     }
 
-    // Price management functions
-    function checkUpkeep(bytes calldata /* checkData */)
-        external
-        view
-        override
-        returns (bool upkeepNeeded, bytes memory /* performData */)
-    {
-        upkeepNeeded = automationEnabled && 
-                       (block.timestamp - lastTimeStamp) >= minUpdateInterval &&
-                       !paused();
-    }
-
-    function performUpkeep(bytes calldata /* performData */) external override {
-        if ((block.timestamp - lastTimeStamp) >= minUpdateInterval) {
-            lastTimeStamp = block.timestamp;
-            updatePrice();
-        }
-    }
-
-    function updatePrice() public returns (bytes32) {
-        SedaDataTypes.DataRequestInputs memory inputs = SedaDataTypes.DataRequestInputs(
-            oracleProgramId,
-            "ethusdc",                    
-            oracleProgramId,
-            hex"00",
-            1,
-            hex"00",
-            1,
-            5000000,
-            abi.encodePacked(block.number)
-        );
-
-        latestDataRequestId = sedaProverContract.postDataRequest(inputs);
-        lastTimeStamp = block.timestamp;
-        
-        return latestDataRequestId;
-    }
-
+    // Price helper function
     function getEthPrice() public view returns (uint256) {
-        if (latestDataRequestId == bytes32(0)) return 0;
+        uint256 price = uint256(priceFeed.latestAnswer());
         
-        SedaDataTypes.DataResult memory dataResult = sedaProverContract.getDataResult(latestDataRequestId);
-        
-        if (dataResult.consensus) {
-            // The result is a hex-encoded ASCII string representing the price
-            // Convert it to a number
-            string memory priceStr = string(dataResult.result);
-            uint256 price = stringToUint(priceStr);
-            
-            // Validate the price is reasonable (greater than 0 and less than $100,000)
-            if (price > 0 && price < 100_000_000_000) {  // $100,000 with 6 decimals
-                return price;
-            }
+        // Validate the price is reasonable (greater than 0 and less than $100,000)
+        if (price > 0 && price < 100_000_000_000) {  // $100,000 with 6 decimals
+            return price;
         }
         
         return 0;
-    }
-
-    function stringToUint(string memory s) internal pure returns (uint256) {
-        bytes memory b = bytes(s);
-        uint256 result = 0;
-        for(uint i = 0; i < b.length; i++) {
-            uint8 c = uint8(b[i]);
-            if (c >= 48 && c <= 57) {
-                result = result * 10 + (c - 48);
-            }
-        }
-        return result;
     }
 
     // Getter functions
@@ -278,18 +200,8 @@ contract NFTMarketplace is
         uint256 ethPrice = getEthPrice();
         if (ethPrice == 0) revert InvalidPrice();
         
-        // priceUSD has 6 decimals (USDC format)
-        // ethPrice has 6 decimals
-        // We want the result in wei (18 decimals)
-        // Formula: (priceUSD * 1e18) / ethPrice
-        
         uint256 priceUSD = _tokens[tokenId].priceUSD;
-        
-        // First multiply by 1e18 to maintain precision and get the result in wei
         uint256 numerator = priceUSD * 1e18;
-        
-        // Then divide by ETH price
-        // Since ethPrice has 6 decimals, this gives us the correct wei amount
         return numerator / ethPrice;
     }
 

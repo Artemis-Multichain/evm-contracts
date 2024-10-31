@@ -98,7 +98,7 @@ contract AutomatedSedaPriceFeed is AutomationCompatibleInterface, Pausable {
         emit RequestSubmitted(latestDataRequestId, block.timestamp);
         
         // Try to update price immediately if result is available
-        _updatePrice();
+        // _updatePrice();
         
         return latestDataRequestId;
     }
