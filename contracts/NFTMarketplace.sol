@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@seda-protocol/contracts/src/SedaProver.sol";
 
 interface IPriceFeed {
     function latestAnswer() external view returns (uint128);
@@ -35,6 +36,12 @@ contract NFTMarketplace is ERC1155, ReentrancyGuard, Pausable {
     
     // Price feed
     IPriceFeed public immutable priceFeed;
+
+    // SEDA integration for prompts
+    SedaProver public immutable sedaProverContract;
+    bytes32 public immutable promptOracleProgramId;
+    bytes32 public latestPromptRequestId;
+    string public latestGeneratedPrompt;
     
     // Constants
     uint256 public constant PRICE_DECIMALS = 6;
@@ -58,6 +65,8 @@ contract NFTMarketplace is ERC1155, ReentrancyGuard, Pausable {
     );
     event FeesUpdated(uint256 creationFee, uint256 platformFee);
     event FeeRecipientUpdated(address newRecipient);
+    event PromptRequested(bytes32 indexed requestId, string basePrompt);
+    event PromptGenerated(bytes32 indexed requestId, string generatedPrompt);
 
     // Errors
     error InvalidPrice();
@@ -67,11 +76,16 @@ contract NFTMarketplace is ERC1155, ReentrancyGuard, Pausable {
     error InvalidFeeConfiguration();
     error InvalidRoyaltyPercentage();
     error TransferFailed();
+    error PromptGenerationFailed();
+    error NoPromptAvailable();
+    error RequestPending();
 
     constructor(
         string memory name_,
         string memory symbol_,
         address _priceFeed,
+        address _sedaProver,
+        bytes32 _promptOracleProgramId,
         uint256 _creationFee,
         uint256 _platformFee,
         address _feeRecipient
@@ -79,6 +93,8 @@ contract NFTMarketplace is ERC1155, ReentrancyGuard, Pausable {
         _name = name_;
         _symbol = symbol_;
         priceFeed = IPriceFeed(_priceFeed);
+        sedaProverContract = SedaProver(_sedaProver);
+        promptOracleProgramId = _promptOracleProgramId;
         
         if (_platformFee > 1000) revert InvalidFeeConfiguration(); // Max 10%
         platformFee = _platformFee;
@@ -92,7 +108,6 @@ contract NFTMarketplace is ERC1155, ReentrancyGuard, Pausable {
         uint256 priceUSD,
         uint256 royaltyPercentage
     ) external payable returns (uint256) {
-        // Validate inputs
         if (msg.value < creationFee) revert InvalidPayment();
         if (royaltyPercentage > 2000) revert InvalidRoyaltyPercentage(); // Max 20% royalty
         
@@ -168,6 +183,55 @@ contract NFTMarketplace is ERC1155, ReentrancyGuard, Pausable {
         }
     }
 
+    /**
+     * @notice Requests prompt generation from SEDA network
+     * @param basePrompt The base prompt to use for generation
+     * @return requestId The ID of the submitted request
+     */
+    function requestPromptGeneration(
+    string calldata basePrompt
+    ) external returns (bytes32) {
+        bytes memory promptBytes = abi.encodePacked(basePrompt);
+        
+        SedaDataTypes.DataRequestInputs memory inputs = SedaDataTypes.DataRequestInputs(
+            promptOracleProgramId,     // Program ID
+            promptBytes,               // The prompt we want to use, converted to bytes
+            promptOracleProgramId,     // Binary ID
+            hex"00",                   // Version
+            1,                         // Min responses
+            hex"00",                   // Max responses threshold
+            1,                         // Max gas
+            5000000,                   // Gas limit
+            abi.encodePacked(block.number)
+        );
+
+        latestPromptRequestId = sedaProverContract.postDataRequest(inputs);
+        emit PromptRequested(latestPromptRequestId, basePrompt);
+        return latestPromptRequestId;
+    }
+
+    /**
+     * @notice Gets the latest generated prompt from SEDA network
+     * @return The latest prompt string
+     */
+    function getLatestPrompt() public view returns (string memory) {
+        // If no request has been made yet
+        if (latestPromptRequestId == bytes32(0)) {
+            revert NoPromptAvailable();
+        }
+        
+        // Get result from SEDA
+        SedaDataTypes.DataResult memory dataResult = sedaProverContract.getDataResult(latestPromptRequestId);
+        
+        // Check if we have consensus
+        if (dataResult.consensus) {
+            return string(dataResult.result);
+        }
+        
+        // If no consensus yet, revert
+        revert PromptGenerationFailed();
+    }
+
     // Price helper function
     function getEthPrice() public view returns (uint256) {
         uint256 price = uint256(priceFeed.latestAnswer());
@@ -210,6 +274,5 @@ contract NFTMarketplace is ERC1155, ReentrancyGuard, Pausable {
         return _tokens[tokenId].tokenURI;
     }
 
-    // Allow contract to receive ETH
     receive() external payable {}
 }

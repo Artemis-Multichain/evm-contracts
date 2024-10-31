@@ -2,13 +2,15 @@ import { HardhatUserConfig } from 'hardhat/config';
 import '@nomicfoundation/hardhat-toolbox';
 import dotenv from 'dotenv';
 
-// PriceFeed Tasks
+// Tasks
 import './tasks/transmit';
 import './tasks/latestAnswer';
 import './tasks/create-nft';
 import './tasks/update-eth-price';
 import './tasks/get-eth-price';
 import './tasks/mint-nft';
+import './tasks/request-prompt';
+import './tasks/get-prompt';
 
 dotenv.config();
 

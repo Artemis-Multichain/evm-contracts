@@ -102,6 +102,7 @@ contract AutomatedSedaPriceFeed is AutomationCompatibleInterface, Pausable {
         
         return latestDataRequestId;
     }
+    
 
     /**
      * @notice Gets the latest price from SEDA network
