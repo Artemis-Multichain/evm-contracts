@@ -4,13 +4,14 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@seda-protocol/contracts/src/SedaProver.sol";
 
 interface IPriceFeed {
     function latestAnswer() external view returns (uint128);
 }
 
-contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable {
+contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable, Ownable {
     struct TokenData {
         uint256 supply;
         uint256 priceUSD;
@@ -64,6 +65,12 @@ contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable {
     event FeeRecipientUpdated(address newRecipient);
     event PromptRequested(bytes32 indexed requestId, string basePrompt);
     event PromptGenerated(bytes32 indexed requestId, string generatedPrompt);
+    event TokenPriceUpdated(uint256 indexed tokenId, uint256 newPriceUSD);
+    event TokenSupplyIncreased(uint256 indexed tokenId, uint256 additionalSupply);
+    event TokenURIUpdated(uint256 indexed tokenId, string newURI);
+    event EmergencyWithdraw(address indexed recipient, uint256 amount);
+    event BatchMint(uint256 indexed tokenId, address indexed buyer, uint256 quantity);
+
 
     // Errors
     error InvalidPrice();
@@ -76,6 +83,10 @@ contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable {
     error PromptGenerationFailed();
     error NoPromptAvailable();
     error RequestPending();
+    error OnlyTokenCreator();
+    error InvalidSupplyIncrease();
+    error BatchMintExceedsSupply();
+    error WithdrawalFailed();
 
     constructor(
         string memory name_,
@@ -86,7 +97,7 @@ contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable {
         uint256 _creationFee,
         uint256 _platformFee,
         address _feeRecipient
-    ) ERC1155("") {
+   ) ERC1155("") Ownable(msg.sender) { 
         _name = name_;
         _symbol = symbol_;
         priceFeed = IPriceFeed(_priceFeed);
@@ -99,7 +110,7 @@ contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable {
         feeRecipient = _feeRecipient;
     }
 
-    function createNFT(
+    function createPromptNFT(
         uint256 initialSupply,
         string memory tokenURI,
         uint256 priceUSD,
@@ -229,6 +240,51 @@ contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable {
         revert PromptGenerationFailed();
     }
 
+    /**
+     * @notice Allows token creator to update the price of their token
+     * @param tokenId The ID of the token to update
+     * @param newPriceUSD The new price in USD (with PRICE_DECIMALS decimals)
+     */
+    function updateTokenPrice(uint256 tokenId, uint256 newPriceUSD) external {
+        TokenData storage token = _tokens[tokenId];
+        if (!token.exists) revert InvalidToken();
+        if (token.creator != msg.sender) revert OnlyTokenCreator();
+        
+        token.priceUSD = newPriceUSD;
+        emit TokenPriceUpdated(tokenId, newPriceUSD);
+    }
+
+    /**
+     * @notice Allows token creator to increase the supply of their token
+     * @param tokenId The ID of the token
+     * @param additionalSupply Amount to increase the supply by
+     */
+    function increaseTokenSupply(uint256 tokenId, uint256 additionalSupply) external {
+        TokenData storage token = _tokens[tokenId];
+        if (!token.exists) revert InvalidToken();
+        if (token.creator != msg.sender) revert OnlyTokenCreator();
+        if (additionalSupply == 0) revert InvalidSupplyIncrease();
+
+        token.supply += additionalSupply;
+        _mint(msg.sender, tokenId, additionalSupply, "");
+        
+        emit TokenSupplyIncreased(tokenId, additionalSupply);
+    }
+
+    /**
+     * @notice Allows token creator to update the token's URI
+     * @param tokenId The ID of the token
+     * @param newURI The new URI for the token
+     */
+    function updateTokenURI(uint256 tokenId, string memory newURI) external {
+        TokenData storage token = _tokens[tokenId];
+        if (!token.exists) revert InvalidToken();
+        if (token.creator != msg.sender) revert OnlyTokenCreator();
+        
+        token.tokenURI = newURI;
+        emit TokenURIUpdated(tokenId, newURI);
+    }
+
     // Price helper function
     function getEthPrice() public view returns (uint256) {
         uint256 price = uint256(priceFeed.latestAnswer());
@@ -269,6 +325,70 @@ contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable {
     function uri(uint256 tokenId) public view override returns (string memory) {
         if (!_tokens[tokenId].exists) revert InvalidToken();
         return _tokens[tokenId].tokenURI;
+    }
+
+    /**
+     * @notice Pause contract functionality
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @notice Unpause contract functionality
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /**
+     * @notice Update platform fees
+     * @param newCreationFee New fee for creating tokens
+     * @param newPlatformFee New fee percentage for transactions (in basis points)
+     */
+    function updateFees(uint256 newCreationFee, uint256 newPlatformFee) external onlyOwner {
+        if (newPlatformFee > 1000) revert InvalidFeeConfiguration(); // Max 10%
+        
+        creationFee = newCreationFee;
+        platformFee = newPlatformFee;
+        
+        emit FeesUpdated(newCreationFee, newPlatformFee);
+    }
+
+    /**
+     * @notice Update fee recipient address
+     * @param newRecipient New address to receive fees
+     */
+    function updateFeeRecipient(address newRecipient) external onlyOwner {
+        if (newRecipient == address(0)) revert InvalidFeeConfiguration();
+        
+        feeRecipient = newRecipient;
+        emit FeeRecipientUpdated(newRecipient);
+    }
+
+    /**
+     * @notice Emergency withdraw function for stuck ETH
+     * @param recipient Address to receive the withdrawn ETH
+     */
+    function emergencyWithdraw(address recipient) external onlyOwner {
+        uint256 balance = address(this).balance;
+        if (balance == 0) revert WithdrawalFailed();
+        
+        (bool success, ) = recipient.call{value: balance}("");
+        if (!success) revert WithdrawalFailed();
+        
+        emit EmergencyWithdraw(recipient, balance);
+    }
+
+    /**
+     * @notice Check if an address is the creator of a token
+     * @param tokenId The ID of the token to check
+     * @param account The address to check
+     * @return bool True if the address is the token creator
+     */
+    function isTokenCreator(uint256 tokenId, address account) external view returns (bool) {
+        if (!_tokens[tokenId].exists) revert InvalidToken();
+        return _tokens[tokenId].creator == account;
     }
 
     receive() external payable {}

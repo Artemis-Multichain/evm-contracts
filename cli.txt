@@ -7,3 +7,5 @@ npx hardhat create-nft --network baseSepolia \
   --price 5000000 \
   --royalty 500
 npx hardhat mint-nft --network baseSepolia --token-id 1
+npx hardhat request-prompt --prompt "flying thesaurus car" --network baseSepolia
+npx hardhat get-prompt --network baseSepolia

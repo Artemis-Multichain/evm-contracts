@@ -2,7 +2,7 @@
 
 import { task } from 'hardhat/config';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { NFTMarketplace } from '../typechain-types';
+import { AIPromptMarketplace } from '../typechain-types';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -23,22 +23,22 @@ task('request-prompt', 'Requests a new prompt generation from SEDA network')
 
       const deployments = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
       const contractAddress =
-        deployments['NFTMarketplaceModule#NFTMarketplace'];
+        deployments['AIPromptMarketplaceModule#AIPromptMarketplace'];
 
       if (!contractAddress) {
-        throw new Error('NFTMarketplace address not found in deployments');
+        throw new Error('AIPromptMarketplace address not found in deployments');
       }
 
-      console.log('Using NFTMarketplace at:', contractAddress);
+      console.log('Using AIPromptMarketplace at:', contractAddress);
 
       const [signer] = await hre.ethers.getSigners();
       console.log('Requesting prompt as:', signer.address);
 
       const marketplace = (await hre.ethers.getContractAt(
-        'NFTMarketplace',
+        'AIPromptMarketplace',
         contractAddress,
         signer
-      )) as unknown as NFTMarketplace;
+      )) as unknown as AIPromptMarketplace;
 
       // Check if contract is paused
       const isPaused = await marketplace.paused();
@@ -103,7 +103,7 @@ task('request-prompt', 'Requests a new prompt generation from SEDA network')
           );
         } else if (error.message.includes('address not found in deployments')) {
           console.error(
-            'The NFTMarketplace contract was not found in the deployment file'
+            'The AIPromptMarketplace contract was not found in the deployment file'
           );
         } else if (error.message.includes('execution reverted')) {
           console.error(

@@ -15,8 +15,7 @@ const AIPromptMarketplaceModule = buildModule(
     const PLATFORM_FEE = 250; // 2.5%
     const FEE_RECIPIENT = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 
-    const PROMPT_ORACLE_ID =
-      '0xa6c74061fc1cce193dcc60ce995c987cdc93416da5bd4fa9e1881ed5b1ca77a6';
+    const PROMPT_ORACLE_ID = process.env.PROMPT_ORACLE_ID || '0x';
 
     let proverAddress;
     if (network.name !== 'hardhat') {

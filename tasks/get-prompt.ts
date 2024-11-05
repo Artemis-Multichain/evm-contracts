@@ -2,7 +2,7 @@
 
 import { task } from 'hardhat/config';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { NFTMarketplace } from '../typechain-types';
+import { AIPromptMarketplace } from '../typechain-types';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -23,18 +23,18 @@ task(
     }
 
     const deployments = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
-    const contractAddress = deployments['NFTMarketplaceModule#NFTMarketplace'];
+    const contractAddress = deployments['AIPromptMarketplaceModule#AIPromptMarketplace'];
 
     if (!contractAddress) {
-      throw new Error('NFTMarketplace address not found in deployments');
+      throw new Error('AIPromptMarketplace address not found in deployments');
     }
 
-    console.log('Using NFTMarketplace at:', contractAddress);
+    console.log('Using AIPromptMarketplace at:', contractAddress);
 
     const marketplace = (await hre.ethers.getContractAt(
-      'NFTMarketplace',
+      'AIPromptMarketplace',
       contractAddress
-    )) as unknown as NFTMarketplace;
+    )) as unknown as AIPromptMarketplace;
 
     // Get current request status
     const requestId = await marketplace.latestPromptRequestId();
@@ -113,7 +113,7 @@ task(
         );
       } else if (error.message.includes('address not found in deployments')) {
         console.error(
-          'The NFTMarketplace contract was not found in the deployment file'
+          'The AIPromptMarketplace contract was not found in the deployment file'
         );
       } else if (error.message.includes('invalid address')) {
         console.error('Invalid contract address in deployment file');

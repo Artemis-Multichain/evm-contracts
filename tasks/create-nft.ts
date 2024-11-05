@@ -1,6 +1,6 @@
 import { task } from 'hardhat/config';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { NFTMarketplace } from '../typechain-types';
+import { AIPromptMarketplace } from '../typechain-types';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -24,10 +24,10 @@ task('create-nft', 'Creates a new NFT in the marketplace')
 
       const deployments = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
       const contractAddress =
-        deployments['NFTMarketplaceModule#NFTMarketplace'];
+        deployments['AIPromptMarketplaceModule#AIPromptMarketplace'];
 
       if (!contractAddress) {
-        throw new Error('NFTMarketplace address not found in deployments');
+        throw new Error('AIPromptMarketplace address not found in deployments');
       }
 
       const SUPPLY = parseInt(taskArgs.supply);
@@ -42,13 +42,13 @@ task('create-nft', 'Creates a new NFT in the marketplace')
 
       const [signer] = await hre.ethers.getSigners();
       console.log('Creating NFT from address:', signer.address);
-      console.log('Using NFTMarketplace at:', contractAddress);
+      console.log('Using AIPromptMarketplace at:', contractAddress);
 
       const marketplace = (await hre.ethers.getContractAt(
-        'NFTMarketplace',
+        'AIPromptMarketplace',
         contractAddress,
         signer
-      )) as unknown as NFTMarketplace;
+      )) as unknown as AIPromptMarketplace;
 
       // Get creation fee and check if paused
       const [creationFee, isPaused] = await Promise.all([
@@ -82,9 +82,15 @@ task('create-nft', 'Creates a new NFT in the marketplace')
       );
 
       console.log('\nSubmitting transaction...');
-      const tx = await marketplace.createNFT(SUPPLY, URI, PRICE_USD, ROYALTY, {
-        value: creationFee,
-      });
+      const tx = await marketplace.createPromptNFT(
+        SUPPLY,
+        URI,
+        PRICE_USD,
+        ROYALTY,
+        {
+          value: creationFee,
+        }
+      );
 
       console.log('Transaction submitted:', tx.hash);
 
