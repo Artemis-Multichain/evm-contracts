@@ -1,6 +1,6 @@
 import { task } from 'hardhat/config';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { NFTMarketplace } from '../typechain-types';
+import { AIPromptMarketplace } from '../typechain-types';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -21,21 +21,21 @@ task('mint-nft', 'Mints an NFT from the marketplace')
 
       const deployments = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
       const contractAddress =
-        deployments['NFTMarketplaceModule#NFTMarketplace'];
+        deployments['AIPromptMarketplaceModule#AIPromptMarketplace'];
 
       if (!contractAddress) {
-        throw new Error('NFTMarketplace address not found in deployments');
+        throw new Error('AIPromptMarketplace address not found in deployments');
       }
 
       const [signer] = await hre.ethers.getSigners();
       console.log('Minting as:', signer.address);
-      console.log('Using NFTMarketplace at:', contractAddress);
+      console.log('Using AIPromptMarketplace at:', contractAddress);
 
       const marketplace = (await hre.ethers.getContractAt(
-        'NFTMarketplace',
+        'AIPromptMarketplace',
         contractAddress,
         signer
-      )) as unknown as NFTMarketplace;
+      )) as unknown as AIPromptMarketplace;
 
       const isPaused = await marketplace.paused();
       if (isPaused) {
