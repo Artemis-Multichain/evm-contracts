@@ -1,6 +1,6 @@
+npx hardhat ignition deploy ./ignition/modules/AIPromptMarketplaceModule.ts --network baseSepolia --verify
 npx hardhat get-eth-price --network baseSepolia
 npx hardhat update-eth-price --network baseSepolia
-npx hardhat ignition deploy ./ignition/modules/AIPromptMarketplaceModule.ts --network baseSepolia --verify
 npx hardhat create-nft --network baseSepolia \
   --uri ipfs://YourIPFSHash \
   --supply 500 \
@@ -9,3 +9,24 @@ npx hardhat create-nft --network baseSepolia \
 npx hardhat mint-nft --network baseSepolia --token-id 1
 npx hardhat request-prompt --prompt "flying thesaurus car" --network baseSepolia
 npx hardhat get-prompt --network baseSepolia
+
+# Verify a transaction on Base Sepolia (default chain)
+npx hardhat request-tx \
+  --tx-hash 0x1b2aa6906b83251aecf9beb5c1e0ff815d4c7f0ac27cc3df474e0117dd8c3f6c \
+  --network baseSepolia
+
+# Verify a transaction on a different chain
+npx hardhat request-tx \
+  --tx-hash 0x1b2aa6906b83251aecf9beb5c1e0ff815d4c7f0ac27cc3df474e0117dd8c3f6c \
+  --chain-id 1 \
+  --network baseSepolia
+
+npx hardhat get-tx-result --network baseSepolia
+
+npx hardhat ignition deploy ./ignition/modules/ArtemisChallengesModule.ts --network baseSepolia --verify
+
+npx hardhat create-usdc-challenge --ipfs ipfs://YourIPFSHash --network baseSepolia  
+
+npx hardhat submit-solution --id 0 --ipfs ipfs://YourSolutionHash --network baseSepolia
+
+npx hardhat vote --id 0 --submission 0 --network baseSepolia

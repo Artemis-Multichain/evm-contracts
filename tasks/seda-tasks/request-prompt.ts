@@ -1,8 +1,6 @@
-// tasks/request-prompt.ts
-
 import { task } from 'hardhat/config';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { AIPromptMarketplace } from '../typechain-types';
+import { AIPromptMarketplace } from '../../typechain-types';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -12,7 +10,7 @@ task('request-prompt', 'Requests a new prompt generation from SEDA network')
     try {
       const deploymentPath = path.join(
         __dirname,
-        `../ignition/deployments/chain-${hre.network.config.chainId}/deployed_addresses.json`
+        `../../ignition/deployments/chain-${hre.network.config.chainId}/deployed_addresses.json`
       );
 
       if (!fs.existsSync(deploymentPath)) {

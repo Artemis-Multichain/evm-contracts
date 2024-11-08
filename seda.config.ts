@@ -4,6 +4,9 @@ export interface SedaConfig {
 
 export const networkConfigs: { [network: string]: SedaConfig } = {
   baseSepolia: {
-    proverAddress: "0xcBC8a3159535BfE276ADaA8604940602e02c5457",
-  }
+    proverAddress: "0xCcB6ffE2b60e0827a5b566920Bdb8d20Cfc01864",
+  },
+  arbitrumSepolia: {
+    proverAddress: "0xDaeC4a2C90AB29368E9bAea1eA71B22f14709d32",
+  },
 };

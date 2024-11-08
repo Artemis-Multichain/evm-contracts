@@ -1,6 +1,6 @@
 import { task } from 'hardhat/config';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { AutomatedSedaPriceFeed } from '../typechain-types';
+import { AutomatedSedaPriceFeed } from '../../typechain-types';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -11,7 +11,7 @@ task(
   try {
     const deploymentPath = path.join(
       __dirname,
-      `../ignition/deployments/chain-${hre.network.config.chainId}/deployed_addresses.json`
+      `../../ignition/deployments/chain-${hre.network.config.chainId}/deployed_addresses.json`
     );
 
     if (!fs.existsSync(deploymentPath)) {

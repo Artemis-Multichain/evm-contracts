@@ -38,8 +38,11 @@ contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable, Ownable {
     // SEDA integration for prompts
     SedaProver public immutable sedaProverContract;
     bytes32 public immutable promptOracleProgramId;
+    bytes32 public immutable txOracleProgramId;
     bytes32 public latestPromptRequestId;
+    bytes32 public latestTxRequestId;
     string public latestGeneratedPrompt;
+    string public latestTxResult;
     
     // Constants
     uint256 public constant PRICE_DECIMALS = 6;
@@ -65,6 +68,8 @@ contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable, Ownable {
     event FeeRecipientUpdated(address newRecipient);
     event PromptRequested(bytes32 indexed requestId, string basePrompt);
     event PromptGenerated(bytes32 indexed requestId, string generatedPrompt);
+    event TxRequested(bytes32 indexed requestId, string txData);
+    event TxResultGenerated(bytes32 indexed requestId, string result);
     event TokenPriceUpdated(uint256 indexed tokenId, uint256 newPriceUSD);
     event TokenSupplyIncreased(uint256 indexed tokenId, uint256 additionalSupply);
     event TokenURIUpdated(uint256 indexed tokenId, string newURI);
@@ -82,6 +87,8 @@ contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable, Ownable {
     error TransferFailed();
     error PromptGenerationFailed();
     error NoPromptAvailable();
+    error NoTxResultAvailable();
+    error TxRequestFailed();
     error RequestPending();
     error OnlyTokenCreator();
     error InvalidSupplyIncrease();
@@ -94,6 +101,7 @@ contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable, Ownable {
         address _priceFeed,
         address _sedaProver,
         bytes32 _promptOracleProgramId,
+        bytes32 _txOracleProgramId,
         uint256 _creationFee,
         uint256 _platformFee,
         address _feeRecipient
@@ -103,6 +111,7 @@ contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable, Ownable {
         priceFeed = IPriceFeed(_priceFeed);
         sedaProverContract = SedaProver(_sedaProver);
         promptOracleProgramId = _promptOracleProgramId;
+        txOracleProgramId = _txOracleProgramId;
         
         if (_platformFee > 1000) revert InvalidFeeConfiguration(); // Max 10%
         platformFee = _platformFee;
@@ -216,6 +225,51 @@ contract AIPromptMarketplace is ERC1155, ReentrancyGuard, Pausable, Ownable {
         latestPromptRequestId = sedaProverContract.postDataRequest(inputs);
         emit PromptRequested(latestPromptRequestId, basePrompt);
         return latestPromptRequestId;
+    }
+
+    /**
+     * @notice Requests TX data processing from SEDA network
+     * @param txData The transaction data to process
+     * @return requestId The ID of the submitted request
+     */
+    function requestTxProcessing(
+        string calldata txData
+    ) external returns (bytes32) {
+        bytes memory txBytes = abi.encodePacked(txData);
+        
+        SedaDataTypes.DataRequestInputs memory inputs = SedaDataTypes.DataRequestInputs(
+            txOracleProgramId,      // Program ID for TX processing
+            txBytes,                // The TX data we want to process
+            txOracleProgramId,      // Binary ID
+            hex"00",                // Version
+            1,                      // Min responses
+            hex"00",                // Max responses threshold
+            1,                      // Max gas
+            5000000,                // Gas limit
+            abi.encodePacked(block.number)
+        );
+
+        latestTxRequestId = sedaProverContract.postDataRequest(inputs);
+        emit TxRequested(latestTxRequestId, txData);
+        return latestTxRequestId;
+    }
+
+    /**
+     * @notice Gets the latest TX processing result from SEDA network
+     * @return The latest TX processing result string
+     */
+    function getLatestTxResult() public view returns (string memory) {
+        if (latestTxRequestId == bytes32(0)) {
+            revert NoTxResultAvailable();
+        }
+        
+        SedaDataTypes.DataResult memory dataResult = sedaProverContract.getDataResult(latestTxRequestId);
+        
+        if (dataResult.consensus) {
+            return string(dataResult.result);
+        }
+        
+        revert TxRequestFailed();
     }
 
     /**
