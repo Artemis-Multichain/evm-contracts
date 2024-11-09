@@ -37,6 +37,10 @@ The Artemis AI Smart Contracts project is a suite of Solidity contracts that pow
 - Configurable update intervals
 - Price validation and safety checks
 
+**NOTE**: To see how we handle requests and results for Seda oracle in the frontend, see:
+ - [usePromptGeneration](https://github.com/Artemis-Multichain/frontend/blob/master/src/hooks/usePromptGeneration.ts)
+ - [useTxVerification](https://github.com/Artemis-Multichain/frontend/blob/master/src/hooks/useTxVerification.ts)
+
 ## Deployed Contracts
 - **Base Sepolia**
     - AutomatedSedaPriceFeed: [0xeea2c9a9259D6da0f0dd6eD3cc909dB3C1AA187d](https://sepolia.basescan.org/address/0xeea2c9a9259D6da0f0dd6eD3cc909dB3C1AA187d),
