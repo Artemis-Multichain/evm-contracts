@@ -37,6 +37,20 @@ The Artemis AI Smart Contracts project is a suite of Solidity contracts that pow
 - Configurable update intervals
 - Price validation and safety checks
 
+## Deployed Contracts
+- **Base Sepolia**
+    - AutomatedSedaPriceFeed: [0xeea2c9a9259D6da0f0dd6eD3cc909dB3C1AA187d](https://sepolia.basescan.org/address/0xeea2c9a9259D6da0f0dd6eD3cc909dB3C1AA187d),
+    - AIPromptMarketplace: [0x338A8D070eD0AD108A02b4A85D789e16a8640933](https://sepolia.basescan.org/address/0x338A8D070eD0AD108A02b4A85D789e16a8640933),
+    - ArtemisChallenges: [0xcF9577b373070Ae442Cc9F3B3e69CC6F53eb8787](https://sepolia.basescan.org/address/0xcF9577b373070Ae442Cc9F3B3e69CC6F53eb8787)
+
+- **Arbitrum Sepolia**:
+    - AutomatedSedaPriceFeed: [0xb41b4335e95660Ac55a8167d29120402D2Ad9DFB](https://sepolia.arbiscan.io/address/0xb41b4335e95660Ac55a8167d29120402D2Ad9DFB),
+    - AIPromptMarketplace: [0x47887dC0305769285d8d793C3dd669f61274e959](https://sepolia.arbiscan.io/address/0x47887dC0305769285d8d793C3dd669f61274e959#internaltx),
+    - ArtemisChallenges: [0xC0275C30c2b22718a9C8f36747f13D4Da8147561](https://sepolia.arbiscan.io/address/0xC0275C30c2b22718a9C8f36747f13D4Da8147561)
+
+
+
+
 ## 📦 Project Structure
 
 ```
