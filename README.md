@@ -20,8 +20,8 @@ The Artemis AI Smart Contracts project is a suite of Solidity contracts that pow
 - Create and mint ERC1155 tokens representing AI prompts
 - Dynamic pricing in USD using SEDA price feeds
 - Configurable royalties and platform fees
-- Real-time prompt generation via SEDA network
-- Transaction verification and validation
+- Real-time prompt generation via **SEDA** network
+- Transaction verification and validation via **SEDA** network
 
 ### AI Challenges Platform (ArtemisChallenges.sol)
 - Create challenges with ETH or USDC prize pools
@@ -32,10 +32,27 @@ The Artemis AI Smart Contracts project is a suite of Solidity contracts that pow
 
 ### Price Feed Oracle (AutomatedSedaPriceFeed.sol)
 - Real-time ETH/USD price updates
-- SEDA network integration
+- **SEDA** network integration
 - Automated updates via Chainlink
 - Configurable update intervals
 - Price validation and safety checks
+
+## 📦 Project Structure
+
+```
+├── contracts/                 # Smart contracts
+│   ├── AIPromptMarketplace.sol   # AI prompt marketplace contract
+│   ├── ArtemisChallenges.sol     # Challenges platform
+│   ├── AutomatedSedaPriceFeed.sol # Price oracle
+│   └── mock/                     # Mock contracts for testing
+├── ignition/                 # Deployment modules
+│   └── modules/              # Contract deployment configurations
+├── tasks/                    # Hardhat tasks
+│   ├── ai-challenges-tasks/  # Challenge-related tasks
+│   ├── marketplace-tasks/    # NFT marketplace tasks
+│   └── seda-tasks/          # SEDA integration tasks
+└── test/                    # Contract tests
+```
 
 ## 🚀 Getting Started
 
@@ -153,23 +170,6 @@ npx hardhat get-eth-price --network baseSepolia
 Run the test suite:
 ```bash
 npx hardhat test
-```
-
-## 📦 Project Structure
-
-```
-├── contracts/                 # Smart contracts
-│   ├── AIPromptMarketplace.sol   # NFT marketplace contract
-│   ├── ArtemisChallenges.sol     # Challenges platform
-│   ├── AutomatedSedaPriceFeed.sol # Price oracle
-│   └── mock/                     # Mock contracts for testing
-├── ignition/                 # Deployment modules
-│   └── modules/              # Contract deployment configurations
-├── tasks/                    # Hardhat tasks
-│   ├── ai-challenges-tasks/  # Challenge-related tasks
-│   ├── marketplace-tasks/    # NFT marketplace tasks
-│   └── seda-tasks/          # SEDA integration tasks
-└── test/                    # Contract tests
 ```
 
 ## 🌐 Supported Networks
